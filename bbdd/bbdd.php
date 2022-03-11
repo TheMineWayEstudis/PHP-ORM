@@ -15,7 +15,7 @@
   }
 
   function sanitize($text) {
-    return $text;
+    return str_replace("\"","\"\"",$text);
   }
 
   function columns($tableName) {
@@ -75,7 +75,7 @@
     $opts = optsProcessor($opts);
 
     $virtual = $opts["virtual"] ? "virtual_" : "";
-    $fields = $opts["fields"];
+    $fields = is_array($opts["fields"]) ? array_map(function($fie) { return sanitize($fie); }, $opts["fields"]) : $opts["fields"];
     $where = $opts["where"];
     $paranoid = $opts["paranoid"];
     if($paranoid) {
@@ -87,7 +87,6 @@
     $order = $opts["order"];
     
     $que = "SELECT $fields FROM $virtual$tableName $where $orderBy $orderByDesc $order $limit;";
-    //echo $que."<br/>";
 
     $result = query($que);
     
@@ -101,6 +100,12 @@
   function insert(string $table, array $content) {
     $columns = implode(array_map(function($v) { return "$v";}, columns($table)),", ");
 
+    $content = array_map(function($arr) {
+      return array_map(function($fil) {
+        return sanitize($fil);
+      }, $arr);
+    }, $content);
+
     $values = implode(array_map(function($row) {
       return "(".implode(array_map(function ($cell) {
         return $cell == null ? "NULL" : "\"$cell\"";
@@ -108,20 +113,20 @@
     }, $content), ",");
     
     $baseQ = "INSERT INTO $table ($columns) VALUES $values;";
-    echo $baseQ;
     $result = query($baseQ, false);
     
     return $result;
   }
 
   function update(string $tableName, string $where, array $content) {
+    $content = array_map(function($fil) { return sanitize($fil); },$content);
+    
     $pairs = [];
     foreach($content as $col => $value) {
-      $pairs[] = "$col = $value";
+      $pairs[] = "$col = \"$value\"";
     }
     $pairs = implode($pairs, ",");
 
-    echo "UPDATE $tableName SET $pairs, updatedAt = SYSDATE() WHERE $where;";
     query("UPDATE $tableName SET $pairs, updatedAt = SYSDATE() WHERE $where;", false);
   }
 
